@@ -4,6 +4,7 @@ import tempfile, asyncio, io
 from fpdf import FPDF
 from PyPDF2 import PdfReader
 import docx
+import os
 
 app = FastAPI()
 
@@ -28,15 +29,28 @@ async def generate_resume(job_description: str, applicant_details: str) -> str:
     return resume_text
 
 def generate_pdf(text: str, output_path: str):
-    """
-    Create a simple PDF from the resume text using FPDF.
-    """
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    # Compute the absolute path to the font file relative to this script
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(current_dir, "..", "fonts", "DejaVuSans.ttf")
+    
+    # Debug lines to verify the font file
+    print("Using font path:", font_path)
+    exists = os.path.exists(font_path)
+    print("Font exists:", exists)
+    if exists:
+        print("File size:", os.path.getsize(font_path), "bytes")
+    else:
+        raise Exception("Font file not found!")
+    
+    pdf.add_font("DejaVu", "", font_path, uni=True)
+    pdf.set_font("DejaVu", size=12)
     for line in text.split('\n'):
         pdf.cell(0, 10, txt=line, ln=True)
     pdf.output(output_path)
+
+
 
 async def send_to_hubspot(applicant_email: str, resume_status: str):
     """

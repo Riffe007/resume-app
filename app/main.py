@@ -1,43 +1,35 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
-import tempfile
-import os
-import asyncio
+import tempfile, asyncio, io
 from fpdf import FPDF
+from PyPDF2 import PdfReader
+import docx
 
 app = FastAPI()
-
-# --- Helper Functions ---
 
 async def generate_resume(job_description: str, applicant_details: str) -> str:
     """
     Simulate generating a tailored resume using the job description and applicant details.
-    In a production setup, this function would call the Azure OpenAI GPT-4 API,
-    possibly using a fine-tuned model (from your JSONL file) to generate the resume.
+    In production, replace this with a call to your fine-tuned model.
     """
-    # Build a prompt that incorporates the job description and applicant details.
     prompt = (
         f"Generate a tailored resume for the following applicant:\n"
         f"{applicant_details}\n\n"
         f"Based on this job description:\n{job_description}\n\n"
         f"Please format the resume with clear sections."
     )
-    
-    # Simulate network/API delay
-    await asyncio.sleep(1)
-    
-    # Dummy resume content. Replace this with the actual API call.
+    await asyncio.sleep(1)  # Simulate processing delay
     resume_text = (
         f"Tailored Resume\n\n"
         f"Applicant: {applicant_details}\n\n"
         f"Job Description:\n{job_description}\n\n"
-        f"[Generated Resume Content Here based on prompt: {prompt}]"
+        f"[Generated Resume Content Based on Prompt: {prompt}]"
     )
     return resume_text
 
 def generate_pdf(text: str, output_path: str):
     """
-    Generate a simple PDF file from text using FPDF.
+    Create a simple PDF from the resume text using FPDF.
     """
     pdf = FPDF()
     pdf.add_page()
@@ -48,14 +40,39 @@ def generate_pdf(text: str, output_path: str):
 
 async def send_to_hubspot(applicant_email: str, resume_status: str):
     """
-    Simulate sending resume status to HubSpot.
-    In production, use an HTTP client (like httpx or requests) to make API calls to HubSpot.
+    Simulate sending the resume status to HubSpot.
+    Replace with actual API integration in production.
     """
     await asyncio.sleep(1)
-    # Dummy response—replace with actual API integration
     return {"status": "sent", "email": applicant_email, "resume_status": resume_status}
 
-# --- Endpoints ---
+def extract_text_from_pdf(content: bytes) -> str:
+    """
+    Extract text from a PDF file using PyPDF2.
+    """
+    reader = PdfReader(io.BytesIO(content))
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text
+    return text
+
+def extract_text_from_docx(content: bytes) -> str:
+    """
+    Extract text from a Word document (.docx) using python-docx.
+    """
+    document = docx.Document(io.BytesIO(content))
+    full_text = []
+    for para in document.paragraphs:
+        full_text.append(para.text)
+    return "\n".join(full_text)
+
+def extract_text_from_txt(content: bytes) -> str:
+    """
+    Decode plain text content as UTF-8.
+    """
+    return content.decode("utf-8")
 
 @app.post("/generate_resume")
 async def create_resume(
@@ -63,35 +80,31 @@ async def create_resume(
     applicant_details: str = Form(...),
     applicant_email: str = Form(...)
 ):
-    """
-    Accepts a job description file upload along with applicant details and email.
-    Uses the file content as a prompt to generate a tailored resume, converts it to a PDF,
-    sends a resume status to HubSpot, and returns the PDF for download.
-    """
     try:
         content = await file.read()
-        job_description = content.decode("utf-8")
+        lower_filename = file.filename.lower()
+        if lower_filename.endswith(".pdf"):
+            job_description = extract_text_from_pdf(content)
+        elif lower_filename.endswith(".docx"):
+            job_description = extract_text_from_docx(content)
+        elif lower_filename.endswith(".txt"):
+            job_description = extract_text_from_txt(content)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type.")
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Error reading uploaded file.")
+        raise HTTPException(status_code=400, detail=f"Error reading uploaded file. Details: {str(e)}")
 
-    # Generate resume text using the uploaded job description and applicant details.
     resume_text = await generate_resume(job_description, applicant_details)
 
-    # Generate a PDF from the resume text in a temporary file.
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
         pdf_path = tmp_file.name
     generate_pdf(resume_text, pdf_path)
 
-    # Optionally, send resume status to HubSpot asynchronously.
-    hubspot_response = await send_to_hubspot(applicant_email, "Resume Generated")
-    # (In a real implementation, you might log or use hubspot_response as needed.)
+    # Optionally send a status update to HubSpot
+    await send_to_hubspot(applicant_email, "Resume Generated")
 
-    # Return the PDF file as the response for download.
     return FileResponse(pdf_path, media_type="application/pdf", filename="resume.pdf")
 
 @app.get("/")
 async def root():
-    """
-    Simple health check endpoint.
-    """
     return JSONResponse({"message": "Resume AI Service is running"})

@@ -1,2 +1,74 @@
 venv/
 __pycache++/
+# Byte-compiled / intermediate files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+.venv-*/
+
+# Environment variables and secrets
+.env
+*.env
+.env.local
+.env.production
+.env.test
+
+# Logs and debug output
+logs/
+*.log
+*.out
+*.err
+debug.log
+
+# Ignore IDE/editor-specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Ignore dependency directories
+node_modules/
+dist/
+build/
+*.egg-info/
+pip-wheel-metadata/
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore compiled Python extensions
+*.so
+
+# Ignore macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Ignore backup and temp files
+*.bak
+*.swp
+*.swo
+*.swn
+*.tmp
+*~
+
+# Ignore generated PDFs
+*.pdf
+
+# Ignore docker-related files
+docker-compose.override.yml
+*.dockerignore
+
+# Ignore FastAPI-related files
+instance/
+*.db
+*.sqlite
